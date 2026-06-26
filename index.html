@@ -128,7 +128,7 @@ function openLightbox(src){document.getElementById('lightboxImg').src=src;docume
 function closeLightbox(){document.getElementById('lightbox').classList.remove('open');document.getElementById('lightboxImg').src=''}
 
 // Seed
-// Seed removed - Firebase version
+// Seed removed
 
 
 function shP(id){document.querySelectorAll('.pg').forEach(function(p){p.classList.remove('on')});document.getElementById(id).classList.add('on');window.scrollTo(0,0)}
@@ -181,7 +181,7 @@ function downloadCurrentPath(){var path=getPath(curStn.c,curRoute);var wb=XLSX.u
 function handlePathUpload(event){var file=event.target.files[0];if(!file)return;var reader=new FileReader();reader.onload=function(e){try{var wb=XLSX.read(e.target.result,{type:'array'});var ws=wb.Sheets[wb.SheetNames[0]];var rows=XLSX.utils.sheet_to_json(ws,{header:1});if(rows.length<2){alert('❌ Datei ist leer');return}var sections=[];var secMap={};for(var i=1;i<rows.length;i++){var row=rows[i];if(!row||!row[0]||!row[2])continue;var secName=String(row[0]).trim();var icon=String(row[1]||'📍').trim();var name=String(row[2]).trim();var id=String(row[3]||name.toLowerCase().replace(/[^a-z0-9]/g,'_')).trim();var subs=row[4]?String(row[4]).split(',').map(function(s){return s.trim()}).filter(function(s){return s}):[];var isStair=secName.toLowerCase().indexOf('stairway')>=0||secName.toLowerCase().indexOf('treppe')>=0;if(!secMap[secName]){secMap[secName]={title:secName,isStair:isStair,items:[]};sections.push(secMap[secName])}secMap[secName].items.push({id:id,name:name,icon:icon,subs:subs})}if(!sections.length){alert('❌ Keine Daten');return}PATHS[curStn.c+'_'+curRoute]={sections:sections};savePaths();window._edPath=JSON.parse(JSON.stringify(PATHS[curStn.c+'_'+curRoute]));renderEditor();alert('✅ '+curRoute+'-Pfad importiert!')}catch(err){alert('❌ Fehler: '+err.message)}};reader.readAsArrayBuffer(file);event.target.value=''}
 
 function doExport(){goHome();setTimeout(function(){var h='<!DOCTYPE html>\n'+document.documentElement.outerHTML;var b=new Blob([h],{type:'text/html;charset=utf-8'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='amenities_walk_'+new Date().toISOString().slice(0,10)+'.html';document.body.appendChild(a);a.click();document.body.removeChild(a)},200)}
-// goHome called after Firebase load
+// goHome called after login
 
 
 var FB_URL='https://amenities-walk-default-rtdb.europe-west1.firebasedatabase.app';
@@ -230,14 +230,46 @@ document.getElementById('spStatus').textContent='Abgemeldet';
 }
 function showLoginError(msg){var el=document.getElementById('loginError');el.textContent=msg;el.style.display='block'}
 
-// === STATION FILTER ===
+// === STATION ACCESS CONTROL ===
 var _origSelectStation=selectStation;
 selectStation=function(idx){
 if(APP_MODE==='user'&&STNS[idx].c!==APP_STATION){
-spToast('Kein Zugriff auf '+STNS[idx].c+' - nur '+APP_STATION,true);
+spToast('Kein Zugriff - nur '+APP_STATION,true);
 return;
 }
 _origSelectStation(idx);
+};
+
+// === Override goHome: User sees only their station card ===
+var _origGoHome=goHome;
+goHome=function(){
+if(APP_MODE==='user'&&APP_STATION){
+// Show home page but only with user's station
+curStn=curArea=curSub=null;curRoute=null;
+document.getElementById('bc').style.display='none';
+shP('p-home');
+// Render only the user's station
+var g=document.getElementById('wg');
+g.innerHTML='';
+var cur=getCurrentKW();
+var stIdx=-1;
+for(var i=0;i<STNS.length;i++){if(STNS[i].c===APP_STATION){stIdx=i;break}}
+if(stIdx<0)return;
+var s=STNS[stIdx];
+var weeks=[];
+for(var w=cur.kw-7;w<=cur.kw;w++){
+if(w<1)continue;
+var st=stnKW(s.c,cur.y+'-KW'+w);
+weeks.push({kw:w,avg:st.avg,rated:st.rated});
+}
+var ls=0,lr=0;
+for(var i=weeks.length-1;i>=0;i--){if(weeks[i].rated>0){ls=weeks[i].avg;lr=weeks[i].rated;break}}
+var sc=lr?(ls>=4?'#27AE60':ls>=3?'#F1C40F':'#E74C3C'):'#666';
+var stars=lr?'\u2605'.repeat(Math.round(ls))+'\u2606'.repeat(5-Math.round(ls)):'\u2014';
+g.innerHTML='<div class="wc" onclick="selectStation('+stIdx+')"><div class="wc-top"><div><div class="wc-code">'+s.c+'</div><div class="wc-city">\ud83d\udccd '+s.ct+' \u00b7 '+s.sp+'</div></div><div class="wc-score"><div class="wc-score-val" style="color:'+sc+'">'+(lr?ls.toFixed(1):'\u2014')+'</div><div class="wc-score-stars">'+stars+'</div></div></div><div class="wc-chart">'+buildChart(weeks)+'</div><div class="wc-badge">'+getAllCPsBoth(s.c).length+' Checkpoints</div></div>';
+return;
+}
+_origGoHome();
 };
 
 // === FIREBASE SYNC ===
@@ -292,19 +324,4 @@ fetch(FB_URL+'/ratings.json').then(function(r){return r.json()}).then(function(d
 if(data){R=data;localStorage.setItem('aw12_r',JSON.stringify(R));spUpdateStatus()}
 }).catch(function(){});
 },30000);
-
-// === Filter home page for user mode ===
-var _origRenderHome=renderHome;
-renderHome=function(){
-_origRenderHome();
-if(APP_MODE==='user'&&APP_STATION){
-var cards=document.querySelectorAll('.wc');
-cards.forEach(function(card,idx){
-if(STNS[idx].c!==APP_STATION){
-card.style.opacity='0.3';
-card.style.pointerEvents='none';
-}
-});
-}
-};
 </script></body></html>
