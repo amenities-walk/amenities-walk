@@ -157,6 +157,12 @@ function handlePathUpload(event){var file=event.target.files[0];if(!file)return;
 
 function doExport(){goHome();setTimeout(function(){var h='<!DOCTYPE html>\n'+document.documentElement.outerHTML;var b=new Blob([h],{type:'text/html;charset=utf-8'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='amenities_walk_'+new Date().toISOString().slice(0,10)+'.html';document.body.appendChild(a);a.click();document.body.removeChild(a)},200)}
 localStorage.removeItem('aw12_r');localStorage.removeItem('aw12_p');localStorage.removeItem('aw12_paths');localStorage.removeItem('aw12_parts');localStorage.removeItem('aw12_seed');R={};P={};PARTS={};PATHS={};
+var FBURL='https://amenities-walk-default-rtdb.europe-west1.firebasedatabase.app';
+(function(){var x=new XMLHttpRequest();x.open('GET',FBURL+'/.json',false);try{x.send();if(x.status===200){var d=JSON.parse(x.responseText);if(d&&d.ratings){R=d.ratings;localStorage.setItem('aw12_r',JSON.stringify(R))}if(d&&d.photos){P=d.photos;try{localStorage.setItem('aw12_p',JSON.stringify(P))}catch(e){}}if(d&&d.participants){PARTS=d.participants;localStorage.setItem('aw12_parts',JSON.stringify(PARTS))}if(d&&d.paths){PATHS=d.paths;localStorage.setItem('aw12_paths',JSON.stringify(PATHS))}}}catch(e){}})();
+var __sr=saveR;saveR=function(){__sr();fetch(FBURL+'/ratings.json',{method:'PUT',body:JSON.stringify(R)}).catch(function(){})};
+var __sp=saveP;saveP=function(){__sp();fetch(FBURL+'/photos.json',{method:'PUT',body:JSON.stringify(P)}).catch(function(){})};
+var __spt=saveParts;saveParts=function(){__spt();fetch(FBURL+'/participants.json',{method:'PUT',body:JSON.stringify(PARTS)}).catch(function(){})};
+var __sph=savePaths;savePaths=function(){__sph();fetch(FBURL+'/paths.json',{method:'PUT',body:JSON.stringify(PATHS)}).catch(function(){})};
 goHome();
 
 function spToast(m,isErr){var t=document.createElement('div');t.className='sync-toast'+(isErr?' err':'');t.textContent=m;document.body.appendChild(t);setTimeout(function(){t.remove()},4000)}
